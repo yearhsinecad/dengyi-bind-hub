@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>登義年度體檢</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    --brand: #00B900;
+    --brand-dark: #009A00;
+    --text: #1A1A1A;
+    --bg: #F5F5F5;
+    --card-bg: #FFFFFF;
+    --muted: #888;
+    --error: #D0021B;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --font-stack: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "PingFang TC", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-stack);
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .field {
+    margin-bottom: 16px;
+  }
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .readonly-value {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+  input[type="text"], input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: var(--font-stack);
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--brand);
+  }
+  button {
+    width: 100%;
+    padding: 14px;
+    background: var(--brand);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  button:active { background: var(--brand-dark); }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  .msg {
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .msg.error { color: var(--error); }
+  .msg.success { color: var(--brand-dark); }
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="loadingCard">
+  <div class="msg">載入中...</div>
+</div>
+
+<div class="card" id="formCard" style="display:none;">
+  <h1>年度體檢資料填寫</h1>
+  <div class="subtitle">請確認以下資訊，並填寫身分證號與體檢日期</div>
+
+  <div class="field">
+    <label>姓名</label>
+    <div class="readonly-value" id="displayName"></div>
+  </div>
+  <div class="field">
+    <label>部門</label>
+    <div class="readonly-value" id="displayDept"></div>
+  </div>
+  <div class="field">
+    <label>體檢醫院</label>
+    <div class="readonly-value" id="displayHospital"></div>
+  </div>
+  <div class="field">
+    <label>體檢方案</label>
+    <div class="readonly-value" id="displayPlan"></div>
+  </div>
+  <div class="field">
+    <label>身分證字號 *</label>
+    <input type="text" id="idNo" placeholder="A123456789" maxlength="10">
+  </div>
+  <div class="field">
+    <label>體檢日期 *</label>
+    <input type="date" id="examDate">
+  </div>
+  <div class="field">
+    <label>出生年月日</label>
+    <input type="date" id="birthDate">
+    <div class="hint">選填，若健檢機構需要可一併填寫</div>
+  </div>
+  <div class="field">
+    <label>Email</label>
+    <input type="text" id="email" placeholder="example@mail.com">
+    <div class="hint">選填，用於接收體檢通知</div>
+  </div>
+
+  <button id="submitBtn" onclick="submitForm()">送出</button>
+</div>
+
+<div class="card" id="resultCard" style="display:none;">
+  <div class="msg" id="resultMsg"></div>
+</div>
+
+<script>
+const LIFF_ID = "2010515352-OBS65pi7";
+const N8N_INFO_URL = "https://hqn8n.dengyi.link/webhook/haas-health-info";
+const N8N_SUBMIT_URL = "https://hqn8n.dengyi.link/webhook/haas-health-submit";
+
+let ragicId = "";
+let token = "";
+
+function getParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name) || "";
+}
+
+function showCard(id) {
+  ["loadingCard", "formCard", "resultCard"].forEach(cid => {
+    document.getElementById(cid).style.display = (cid === id) ? "block" : "none";
+  });
+}
+
+function showError(text) {
+  showCard("resultCard");
+  const el = document.getElementById("resultMsg");
+  el.className = "msg error";
+  el.textContent = text;
+}
+
+function showSuccess(text) {
+  showCard("resultCard");
+  const el = document.getElementById("resultMsg");
+  el.className = "msg success";
+  el.textContent = text;
+}
+
+async function init() {
+  ragicId = getParam("ragicId");
+  token = getParam("token");
+
+  if (!ragicId || !token) {
+    showError("連結參數錯誤，請透過官方推播訊息重新開啟");
+    return;
+  }
+
+  try {
+    await liff.init({ liffId: LIFF_ID });
+  } catch (e) {
+    // 非 LINE 環境或初始化失敗時仍嘗試繼續（供瀏覽器測試用）
+  }
+
+  try {
+    const res = await fetch(`${N8N_INFO_URL}?ragicId=${encodeURIComponent(ragicId)}&token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+
+    if (!data.ok) {
+      const msgMap = {
+        RECORD_NOT_FOUND: "找不到您的體檢名單資料，請聯繫人資",
+        TOKEN_MISMATCH: "連結已失效，請聯繫人資重新取得連結",
+        ALREADY_SUBMITTED: "您已經填寫過體檢資料，如需修改請聯繫人資"
+      };
+      showError(msgMap[data.error] || "載入失敗，請稍後再試");
+      return;
+    }
+
+    document.getElementById("displayName").textContent = data.empName;
+    document.getElementById("displayDept").textContent = data.dept;
+    document.getElementById("displayHospital").textContent = data.hospital;
+    document.getElementById("displayPlan").textContent = data.plan;
+
+    showCard("formCard");
+  } catch (e) {
+    showError("網路連線失敗，請稍後再試");
+  }
+}
+
+async function submitForm() {
+  const idNo = document.getElementById("idNo").value.trim();
+  const examDate = document.getElementById("examDate").value;
+  const birthDate = document.getElementById("birthDate").value;
+  const email = document.getElementById("email").value.trim();
+
+  if (!idNo) { alert("請填寫身分證字號"); return; }
+  if (!examDate) { alert("請選擇體檢日期"); return; }
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true;
+  btn.textContent = "送出中...";
+
+  try {
+    const res = await fetch(N8N_SUBMIT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ragicId, token, idNo, examDate, birthDate, email })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      showSuccess("體檢資料已送出，感謝您的填寫！");
+      setTimeout(() => {
+        if (window.liff && liff.isInClient && liff.isInClient()) {
+          liff.closeWindow();
+        }
+      }, 2000);
+    } else {
+      btn.disabled = false;
+      btn.textContent = "送出";
+      alert("送出失敗：" + (data.error || "未知錯誤"));
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "送出";
+    alert("網路連線失敗，請稍後再試");
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
