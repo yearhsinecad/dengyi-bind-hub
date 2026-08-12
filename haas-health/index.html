@@ -107,7 +107,7 @@
 
 <div class="card" id="formCard" style="display:none;">
   <h1>年度體檢資料填寫</h1>
-  <div class="subtitle">請確認以下資訊，並填寫身分證號與體檢日期</div>
+  <div class="subtitle">請確認以下資訊，並填寫體檢日期</div>
 
   <div class="field">
     <label>姓名</label>
@@ -126,22 +126,20 @@
     <div class="readonly-value" id="displayPlan"></div>
   </div>
   <div class="field">
-    <label>身分證字號 *</label>
-    <input type="text" id="idNo" placeholder="A123456789" maxlength="10">
+    <label>身分證字號</label>
+    <div class="readonly-value" id="displayIdNo"></div>
+  </div>
+  <div class="field">
+    <label>出生年月日</label>
+    <div class="readonly-value" id="displayBirthDate"></div>
+  </div>
+  <div class="field">
+    <label>Email</label>
+    <div class="readonly-value" id="displayEmail"></div>
   </div>
   <div class="field">
     <label>體檢日期 *</label>
     <input type="date" id="examDate">
-  </div>
-  <div class="field">
-    <label>出生年月日</label>
-    <input type="date" id="birthDate">
-    <div class="hint">選填，若健檢機構需要可一併填寫</div>
-  </div>
-  <div class="field">
-    <label>Email</label>
-    <input type="text" id="email" placeholder="example@mail.com">
-    <div class="hint">選填，用於接收體檢通知</div>
   </div>
 
   <button id="submitBtn" onclick="submitForm()">送出</button>
@@ -219,6 +217,9 @@ async function init() {
     document.getElementById("displayDept").textContent = data.dept;
     document.getElementById("displayHospital").textContent = data.hospital;
     document.getElementById("displayPlan").textContent = data.plan;
+    document.getElementById("displayIdNo").textContent = data.idNo || "（未提供，請聯繫人資補登）";
+    document.getElementById("displayBirthDate").textContent = data.birthDate || "（未提供，請聯繫人資補登）";
+    document.getElementById("displayEmail").textContent = data.email || "（未提供，請聯繫人資補登）";
 
     showCard("formCard");
   } catch (e) {
@@ -227,12 +228,8 @@ async function init() {
 }
 
 async function submitForm() {
-  const idNo = document.getElementById("idNo").value.trim();
   const examDate = document.getElementById("examDate").value;
-  const birthDate = document.getElementById("birthDate").value;
-  const email = document.getElementById("email").value.trim();
 
-  if (!idNo) { alert("請填寫身分證字號"); return; }
   if (!examDate) { alert("請選擇體檢日期"); return; }
 
   const btn = document.getElementById("submitBtn");
@@ -243,7 +240,7 @@ async function submitForm() {
     const res = await fetch(N8N_SUBMIT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ragicId, token, idNo, examDate, birthDate, email })
+      body: JSON.stringify({ ragicId, token, examDate })
     });
     const data = await res.json();
 
