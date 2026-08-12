@@ -185,18 +185,20 @@ function showSuccess(text) {
 }
 
 async function init() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+  } catch (e) {
+    // 非 LINE 環境或初始化失敗時仍嘗試繼續（供瀏覽器測試用）
+  }
+
+  // LIFF SDK 會把原始 query string 還原到 liff.state 解析後的網址上
+  // liff.init 完成後 window.location 才會是正確的 ?ragicId=...&token=... 格式
   ragicId = getParam("ragicId");
   token = getParam("token");
 
   if (!ragicId || !token) {
     showError("連結參數錯誤，請透過官方推播訊息重新開啟");
     return;
-  }
-
-  try {
-    await liff.init({ liffId: LIFF_ID });
-  } catch (e) {
-    // 非 LINE 環境或初始化失敗時仍嘗試繼續（供瀏覽器測試用）
   }
 
   try {
