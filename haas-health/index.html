@@ -149,8 +149,8 @@
   </div>
   <div class="field">
     <label>體檢日期 *</label>
-    <input type="date" id="examDate" min="2026-08-24" max="2026-09-30">
-    <div class="hint">可選日期範圍：2026/08/24～2026/09/30，僅開放週一至週五</div>
+    <input type="date" id="examDate">
+    <div class="hint" id="examDateHint">可選日期範圍：2026/08/24～2026/09/30，僅開放週一至週五</div>
   </div>
 
   <button id="submitBtn" onclick="submitForm()">送出</button>
@@ -250,6 +250,7 @@ async function doLogin() {
     }
 
     verifiedIdNo = idNo;
+    currentHospital = data.hospital || "";
 
     document.getElementById("displayName").textContent = data.empName;
     document.getElementById("displayDept").textContent = data.dept;
@@ -259,6 +260,8 @@ async function doLogin() {
     document.getElementById("displayBirthDate").textContent = data.birthDate || "（未提供，請聯繫人資補登）";
     document.getElementById("displayEmail").textContent = data.email || "（未提供，請聯繫人資補登）";
 
+    applyHospitalDateRestriction(currentHospital);
+
     showCard("formCard");
   } catch (e) {
     btn.disabled = false;
@@ -267,8 +270,14 @@ async function doLogin() {
   }
 }
 
-const EXAM_DATE_MIN = "2026-08-24";
-const EXAM_DATE_MAX = "2026-09-30";
+// 各醫院可選日期範圍(依醫院各自開放時程，2026-08-20更新)
+const HOSPITAL_DATE_RANGE = {
+  "新莊輔大醫院": { min: "2026-08-29", max: "2026-09-30", hint: "可選日期範圍：2026/08/29～2026/09/30，僅開放週一至週五（8/24～8/28已結算截止）" },
+  "羅東博愛醫院": { min: "2026-09-01", max: "2026-09-30", hint: "可選日期範圍：2026/09/01～2026/09/30，僅開放週一至週五" }
+};
+const DEFAULT_DATE_RANGE = { min: "2026-08-24", max: "2026-09-30", hint: "可選日期範圍：2026/08/24～2026/09/30，僅開放週一至週五" };
+
+let currentHospital = "";
 
 function isWeekday(dateStr) {
   // dateStr 格式 YYYY-MM-DD，用 T00:00:00 避免時區偏移影響星期判斷
@@ -277,12 +286,26 @@ function isWeekday(dateStr) {
   return day >= 1 && day <= 5;
 }
 
+function getHospitalDateRange(hospital) {
+  return HOSPITAL_DATE_RANGE[hospital] || DEFAULT_DATE_RANGE;
+}
+
+function applyHospitalDateRestriction(hospital) {
+  const input = document.getElementById("examDate");
+  const hint = document.getElementById("examDateHint");
+  const range = getHospitalDateRange(hospital);
+  input.min = range.min;
+  input.max = range.max;
+  hint.textContent = range.hint;
+}
+
 async function submitForm() {
   const examDate = document.getElementById("examDate").value;
+  const range = getHospitalDateRange(currentHospital);
 
   if (!examDate) { alert("請選擇體檢日期"); return; }
-  if (examDate < EXAM_DATE_MIN || examDate > EXAM_DATE_MAX) {
-    alert("體檢日期須介於 2026/08/24～2026/09/30 之間");
+  if (examDate < range.min || examDate > range.max) {
+    alert(`體檢日期須介於 ${range.min.replace(/-/g, "/")}～${range.max.replace(/-/g, "/")} 之間`);
     return;
   }
   if (!isWeekday(examDate)) {
